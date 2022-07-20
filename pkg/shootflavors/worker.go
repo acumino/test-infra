@@ -2,6 +2,8 @@ package shootflavors
 
 import (
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	"k8s.io/utils/pointer"
 
 	"github.com/gardener/test-infra/pkg/common"
 	"github.com/gardener/test-infra/pkg/util"
@@ -12,7 +14,10 @@ func SetupWorker(cloudprofile gardencorev1beta1.CloudProfile, workers []gardenco
 	for i, w := range workers {
 		worker := w.DeepCopy()
 		if worker.Machine.Image != nil && (worker.Machine.Image.Version == nil || *worker.Machine.Image.Version == common.PatternLatest) {
-			version, err := util.GetLatestMachineImageVersion(cloudprofile, worker.Machine.Image.Name)
+			if worker.Machine.Architecture == nil {
+				worker.Machine.Architecture = pointer.String(v1beta1constants.ArchitectureAMD64)
+			}
+			version, err := util.GetLatestMachineImageVersion(cloudprofile, worker.Machine.Image.Name, *worker.Machine.Architecture)
 			if err != nil {
 				return nil, err
 			}
