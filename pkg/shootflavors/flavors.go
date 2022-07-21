@@ -19,8 +19,10 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"k8s.io/utils/pointer"
 
 	"github.com/gardener/test-infra/pkg/common"
 	"github.com/gardener/test-infra/pkg/util"
@@ -94,7 +96,10 @@ func New(rawFlavors []*common.ShootFlavor) (*Flavors, error) {
 			if len(rawFlavor.Workers) != 0 {
 				for _, workers := range rawFlavor.Workers {
 					for _, pool := range workers.WorkerPools {
-						addMachineImage(rawFlavor.Provider, pool.Machine.Image.Name, *pool.Machine.Image.Version)
+						if pool.Machine.Architecture == nil {
+							pool.Machine.Architecture = pointer.String(v1beta1constants.ArchitectureAMD64)
+						}
+						addMachineImage(rawFlavor.Provider, pool.Machine.Image.Name, *pool.Machine.Image.Version, []string{*pool.Machine.Architecture})
 					}
 
 					shoots = append(shoots, &common.Shoot{
@@ -170,10 +175,10 @@ func addKubernetesVersionFunc(versions map[common.CloudProvider]gardencorev1beta
 }
 
 // addMachineImagesFunc adds a new machine image version to a list of unique versions per cloudprovider.
-func addMachineImagesFunc(images map[common.CloudProvider][]gardencorev1beta1.MachineImage) func(common.CloudProvider, string, string) {
+func addMachineImagesFunc(images map[common.CloudProvider][]gardencorev1beta1.MachineImage) func(common.CloudProvider, string, string, []string) {
 	used := make(map[common.CloudProvider]map[string]map[string]interface{})
 	indexMapping := make(map[common.CloudProvider]map[string]int)
-	return func(provider common.CloudProvider, name, version string) {
+	return func(provider common.CloudProvider, name, version string, arch []string) {
 		if _, ok := used[provider]; !ok {
 			used[provider] = map[string]map[string]interface{}{
 				name: {version: new(interface{})},
@@ -183,7 +188,7 @@ func addMachineImagesFunc(images map[common.CloudProvider][]gardencorev1beta1.Ma
 			images[provider] = []gardencorev1beta1.MachineImage{
 				{
 					Name:     name,
-					Versions: MachineImageVersions(version),
+					Versions: MachineImageVersions(map[string][]string{version: arch}),
 				},
 			}
 			return
@@ -195,7 +200,7 @@ func addMachineImagesFunc(images map[common.CloudProvider][]gardencorev1beta1.Ma
 
 			images[provider] = append(images[provider], gardencorev1beta1.MachineImage{
 				Name:     name,
-				Versions: MachineImageVersions(version),
+				Versions: MachineImageVersions(map[string][]string{version: arch}),
 			})
 			return
 		}
@@ -203,7 +208,7 @@ func addMachineImagesFunc(images map[common.CloudProvider][]gardencorev1beta1.Ma
 		if _, ok := used[provider][name][version]; !ok {
 			used[provider][name][version] = new(interface{})
 			index := indexMapping[provider][name]
-			images[provider][index].Versions = append(images[provider][index].Versions, MachineImageVersion(version))
+			images[provider][index].Versions = append(images[provider][index].Versions, MachineImageVersion(version, arch))
 		}
 	}
 }
@@ -228,19 +233,20 @@ func ParseKubernetesVersions(versions common.ShootKubernetesVersionFlavor) ([]ga
 }
 
 // MachineImageVersion creates a new machine image version
-func MachineImageVersion(version string) gardencorev1beta1.MachineImageVersion {
+func MachineImageVersion(version string, architectures []string) gardencorev1beta1.MachineImageVersion {
 	return gardencorev1beta1.MachineImageVersion{
 		ExpirableVersion: gardencorev1beta1.ExpirableVersion{
 			Version: version,
 		},
+		Architectures: architectures,
 	}
 }
 
 // MachineImageVersions creates a new list of machine image versions
-func MachineImageVersions(versions ...string) []gardencorev1beta1.MachineImageVersion {
-	images := make([]gardencorev1beta1.MachineImageVersion, len(versions))
-	for i, version := range versions {
-		images[i] = MachineImageVersion(version)
+func MachineImageVersions(versions map[string][]string) []gardencorev1beta1.MachineImageVersion {
+	images := []gardencorev1beta1.MachineImageVersion{}
+	for version, arch := range versions {
+		images = append(images, MachineImageVersion(version, arch))
 	}
 	return images
 }

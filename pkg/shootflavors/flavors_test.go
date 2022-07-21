@@ -29,8 +29,9 @@ var _ = Describe("flavor test", func() {
 	)
 	BeforeEach(func() {
 		defaultMachine = gardencorev1beta1.Machine{
-			Type:  "test-machine",
-			Image: &gardencorev1beta1.ShootMachineImage{Name: "coreos", Version: pointer.StringPtr("0.0.1")},
+			Type:         "test-machine",
+			Image:        &gardencorev1beta1.ShootMachineImage{Name: "coreos", Version: pointer.StringPtr("0.0.1")},
+			Architecture: pointer.String("amd64"),
 		}
 	})
 	It("should return no shoots if no flavors are defined", func() {
@@ -512,7 +513,7 @@ var _ = Describe("flavor test", func() {
 			images := flavors.GetUsedMachineImages()
 			Expect(images).To(HaveKeyWithValue(common.CloudProviderGCP, []gardencorev1beta1.MachineImage{{
 				Name:     "coreos",
-				Versions: MachineImageVersions("0.0.1"),
+				Versions: MachineImageVersions(map[string][]string{"0.0.1": []string{"amd64"}}),
 			}}))
 		})
 
@@ -529,7 +530,7 @@ var _ = Describe("flavor test", func() {
 						{
 							WorkerPools: []gardencorev1beta1.Worker{
 								{Name: "wp1", Machine: defaultMachine},
-								{Name: "wp2", Machine: newMachineImage("jeos", "0.0.2")},
+								{Name: "wp2", Machine: newMachineImage("jeos", "0.0.2", "amd64")},
 							},
 						},
 					},
@@ -540,8 +541,8 @@ var _ = Describe("flavor test", func() {
 
 			images := flavors.GetUsedMachineImages()
 			Expect(images).To(HaveKeyWithValue(common.CloudProviderGCP, []gardencorev1beta1.MachineImage{
-				{Name: "coreos", Versions: MachineImageVersions("0.0.1")},
-				{Name: "jeos", Versions: MachineImageVersions("0.0.2")},
+				{Name: "coreos", Versions: MachineImageVersions(map[string][]string{"0.0.1": []string{"amd64"}})},
+				{Name: "jeos", Versions: MachineImageVersions(map[string][]string{"0.0.2": []string{"amd64"}})},
 			}))
 		})
 
@@ -558,13 +559,13 @@ var _ = Describe("flavor test", func() {
 						{
 							WorkerPools: []gardencorev1beta1.Worker{
 								{Name: "wp1", Machine: defaultMachine},
-								{Name: "wp2", Machine: newMachineImage("jeos", "0.0.2")},
+								{Name: "wp2", Machine: newMachineImage("jeos", "0.0.2", "amd64")},
 							},
 						},
 						{
 							WorkerPools: []gardencorev1beta1.Worker{
 								{Name: "wp1", Machine: defaultMachine},
-								{Name: "wp2", Machine: newMachineImage("jeos", "0.0.2")},
+								{Name: "wp2", Machine: newMachineImage("jeos", "0.0.2", "amd64")},
 							},
 						},
 					},
@@ -575,16 +576,17 @@ var _ = Describe("flavor test", func() {
 
 			images := flavors.GetUsedMachineImages()
 			Expect(images).To(HaveKeyWithValue(common.CloudProviderGCP, []gardencorev1beta1.MachineImage{
-				{Name: "coreos", Versions: MachineImageVersions("0.0.1")},
-				{Name: "jeos", Versions: MachineImageVersions("0.0.2")},
+				{Name: "coreos", Versions: MachineImageVersions(map[string][]string{"0.0.1": []string{"amd64"}})},
+				{Name: "jeos", Versions: MachineImageVersions(map[string][]string{"0.0.2": []string{"amd64"}})},
 			}))
 		})
 	})
 })
 
-func newMachineImage(imageName, version string) gardencorev1beta1.Machine {
+func newMachineImage(imageName, version, arch string) gardencorev1beta1.Machine {
 	return gardencorev1beta1.Machine{
-		Type:  "test-machine",
-		Image: &gardencorev1beta1.ShootMachineImage{Name: imageName, Version: &version},
+		Type:         "test-machine",
+		Image:        &gardencorev1beta1.ShootMachineImage{Name: imageName, Version: &version},
+		Architecture: pointer.String(arch),
 	}
 }
